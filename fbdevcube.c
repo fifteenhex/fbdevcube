@@ -3,16 +3,8 @@
 #define S3L_MAX_PIXELS		(512 * 512)
 #include "small3dlib/small3dlib.h"
 
-#define U S3L_F // this is the library unit, like e.g. 1 meter
-
-S3L_Unit triangleVertices[]   = {	 // x,   y,   z
-					 U,   0,   0,     // vertex 1
-					 0,   U,   0,     // vertex 2
-					-U,   U/2, 0 };   // vertex 3
-
-S3L_Index triangleTriangles[] = { 0, 1, 2 }; // our single triangle
-
-#undef U
+static const S3L_Unit cube_vertices[] = { S3L_CUBE_VERTICES(S3L_F) };
+static const S3L_Index cube_triangles[] = { S3L_CUBE_TRIANGLES };
 
 static void *fb;
 static unsigned int stride;
@@ -62,13 +54,17 @@ int main(int argc, char **argv, char **envp)
 	S3L_resolutionX = vscrinfo.xres;
 	S3L_resolutionY = vscrinfo.yres;
 
-	// 3D model representing our triangle
-	S3L_Model3D triangleModel;
-	S3L_model3DInit(triangleVertices,9,triangleTriangles,1,&triangleModel);
+	/* Setup the cube */
+	S3L_Model3D cube_model;
+	S3L_model3DInit(cube_vertices,
+		 S3L_CUBE_VERTEX_COUNT,
+		 cube_triangles,
+		 S3L_CUBE_TRIANGLE_COUNT,
+		 &cube_model);
 
 	// scene of 3D models (we only have 1)
 	S3L_Scene scene;
-	S3L_sceneInit(&triangleModel,1,&scene);
+	S3L_sceneInit(&cube_model,1,&scene);
 
 	// shift the camera a little bit so that we can see the triangle
 	scene.camera.transform.translation.z = -2 * S3L_F;
@@ -77,7 +73,7 @@ int main(int argc, char **argv, char **envp)
 	while (1) {
 		memset(fb, 0, framebuffersz);
 
-		triangleModel.transform.rotation.x += 4;
+		cube_model.transform.rotation.x += 4;
 
 		// has to be called before each frame
 		S3L_newFrame();
