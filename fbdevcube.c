@@ -52,6 +52,12 @@ int main(int argc, char **argv, char **envp)
 
 	printf("framebuffer mapped to 0x%lx\n", (unsigned long) fb);
 
+	ret = ioctl(fbfd, FBIOBLANK, FB_BLANK_UNBLANK);
+	if (ret) {
+		printf("failed to unblank framebuffer: %d\n", ret);
+		//return 1;
+	}
+
 	/* Set the resolution, we might use dithering or something later... */
 	S3L_resolutionX = vscrinfo.xres;
 	S3L_resolutionY = vscrinfo.yres;
