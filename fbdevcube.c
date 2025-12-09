@@ -58,8 +58,6 @@ int main(int argc, char **argv, char **envp)
 
 	printf("framebuffer mapped to 0x%lx\n", (unsigned long) fb);
 
-	memset(fb, 0, framebuffersz);
-
 	/* Set the resolution, we might use dithering or something later... */
 	S3L_resolutionX = vscrinfo.xres;
 	S3L_resolutionY = vscrinfo.yres;
@@ -76,15 +74,23 @@ int main(int argc, char **argv, char **envp)
 	scene.camera.transform.translation.z = -2 * S3L_F;
 	scene.camera.transform.translation.y = S3L_F / 2;
 
-	// has to be called before each frame
-	S3L_newFrame();
-	/*
-	 * this starts the scene rendering, the library
-	 * will now start calling our drawPixel function to
-	 * render the camera view
-	 */
-	S3L_drawScene(scene);
+	while (1) {
+		memset(fb, 0, framebuffersz);
 
+		triangleModel.transform.rotation.x += 4;
+
+		// has to be called before each frame
+		S3L_newFrame();
+		/*
+		 * this starts the scene rendering, the library
+		 * will now start calling our drawPixel function to
+		 * render the camera view
+		 */
+		S3L_drawScene(scene);
+
+		/* Lets go for 5 fps */
+		msleep(1000 / 5);
+	}
 
 	return 0;
 }
