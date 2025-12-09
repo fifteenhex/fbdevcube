@@ -3,18 +3,22 @@
 #define S3L_MAX_PIXELS		(512 * 512)
 #include "small3dlib/small3dlib.h"
 
+static void *fb;
+static unsigned int stride;
+
 static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 {
+	unsigned int bit = p->x % 8;
 
+	((uint8_t*)fb) [(p->y * stride) + (p->x / 8)] |= (1 << bit);
 }
 
 int main(int argc, char **argv, char **envp)
 {
 	struct fb_var_screeninfo vscrinfo;
 	const char *fbdev_path = "/dev/fb0";
-	int fbfd, ret;
-	void *fb;
 	size_t framebuffersz;
+	int fbfd, ret;
 
 	printf("fbdevcube (%s)\n", __TIME__);
 
@@ -30,6 +34,7 @@ int main(int argc, char **argv, char **envp)
 		return 1;
 	}
 
+	stride = (vscrinfo.xres * vscrinfo.bits_per_pixel) / 8;
 	framebuffersz = ((vscrinfo.xres * vscrinfo.yres) * vscrinfo.bits_per_pixel) / 8;
 	printf("framebuffer is %d x %d @ %d bpp, %d bytes\n",
 		vscrinfo.xres, vscrinfo.yres, vscrinfo.bits_per_pixel, (unsigned) framebuffersz);
@@ -41,6 +46,12 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	printf("framebuffer mapped to 0x%lx\n", (unsigned long) fb);
+
+	memset(fb, 0, framebuffersz);
+
+	/* Set the resolution, we might use dithering or something later... */
+	S3L_resolutionX = vscrinfo.xres;
+	S3L_resolutionY = vscrinfo.yres;
 
 	return 0;
 }
