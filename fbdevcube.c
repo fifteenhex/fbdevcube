@@ -82,6 +82,7 @@ int main(int argc, char **argv, char **envp)
 		memset(fb, 0, framebuffersz);
 
 		cube_model.transform.rotation.x += 4;
+		cube_model.transform.rotation.y += 4;
 
 		// has to be called before each frame
 		S3L_newFrame();
