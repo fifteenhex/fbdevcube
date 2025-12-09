@@ -3,6 +3,17 @@
 #define S3L_MAX_PIXELS		(512 * 512)
 #include "small3dlib/small3dlib.h"
 
+#define U S3L_F // this is the library unit, like e.g. 1 meter
+
+S3L_Unit triangleVertices[]   = {	 // x,   y,   z
+					 U,   0,   0,     // vertex 1
+					 0,   U,   0,     // vertex 2
+					-U,   U/2, 0 };   // vertex 3
+
+S3L_Index triangleTriangles[] = { 0, 1, 2 }; // our single triangle
+
+#undef U
+
 static void *fb;
 static unsigned int stride;
 
@@ -52,6 +63,28 @@ int main(int argc, char **argv, char **envp)
 	/* Set the resolution, we might use dithering or something later... */
 	S3L_resolutionX = vscrinfo.xres;
 	S3L_resolutionY = vscrinfo.yres;
+
+	// 3D model representing our triangle
+	S3L_Model3D triangleModel;
+	S3L_model3DInit(triangleVertices,9,triangleTriangles,1,&triangleModel);
+
+	// scene of 3D models (we only have 1)
+	S3L_Scene scene;
+	S3L_sceneInit(&triangleModel,1,&scene);
+
+	// shift the camera a little bit so that we can see the triangle
+	scene.camera.transform.translation.z = -2 * S3L_F;
+	scene.camera.transform.translation.y = S3L_F / 2;
+
+	// has to be called before each frame
+	S3L_newFrame();
+	/*
+	 * this starts the scene rendering, the library
+	 * will now start calling our drawPixel function to
+	 * render the camera view
+	 */
+	S3L_drawScene(scene);
+
 
 	return 0;
 }
