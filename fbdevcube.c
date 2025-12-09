@@ -3,6 +3,8 @@
 #define S3L_MAX_PIXELS		(512 * 512)
 #include "small3dlib/small3dlib.h"
 
+#define FPS 30
+
 static const S3L_Unit cube_vertices[] = { S3L_CUBE_VERTICES(S3L_F) };
 static const S3L_Index cube_triangles[] = { S3L_CUBE_TRIANGLES };
 
@@ -84,8 +86,8 @@ int main(int argc, char **argv, char **envp)
 		 */
 		S3L_drawScene(scene);
 
-		/* Lets go for 5 fps */
-		msleep(1000 / 5);
+		/* Limit the FPS */
+		msleep(1000 / FPS);
 	}
 
 	return 0;
