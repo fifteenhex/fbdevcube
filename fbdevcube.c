@@ -19,7 +19,7 @@ static unsigned int stride;
 
 static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 {
-	unsigned int bit = p->x % 8;
+	unsigned int bit = ~p->x % 8;
 
 	((uint8_t*)fb) [(p->y * stride) + (p->x / 8)] |= (1 << bit);
 }
