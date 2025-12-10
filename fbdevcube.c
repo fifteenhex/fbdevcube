@@ -31,14 +31,21 @@ static void reset_damage_rect(void)
 	damage_rect[1][1] = 0;
 }
 
+static int scale = 2;
+
 static inline off_t start_of_line(unsigned short y)
 {
-	return y * stride;
+	return (y * scale) * stride;
 }
 
 static inline off_t byte_in_line(unsigned short x)
 {
-	return x >> 3;
+	switch(scale) {
+	case 1: return x >> 3;
+	case 2: return x >> 2;
+	}
+
+	return 0;
 }
 
 static inline unsigned int bit_in_byte(unsigned short x)
@@ -46,8 +53,17 @@ static inline unsigned int bit_in_byte(unsigned short x)
 	return 1 << (~x & 0x7);
 }
 
+static inline unsigned int twobits_in_byte(unsigned short x)
+{
+	return 0b11 << ((~x & 0x3) * 2);
+}
+
 static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 {
+	unsigned int line = start_of_line(p->y);
+	unsigned int byteinline = byte_in_line(p->x);
+	unsigned int fboff = line + byteinline;
+
 	/* Slide the damage rect x start out from the right */
 	if (p->x < damage_rect[0][0])
 		damage_rect[0][0] = p->x;
@@ -64,7 +80,16 @@ static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 	if (p->y > damage_rect[1][1])
 		damage_rect[1][1] = p->y;
 
-	((uint8_t*)fb) [start_of_line(p->y) + byte_in_line(p->x)] |= bit_in_byte(p->x);
+	switch(scale) {
+	case 2:
+		((uint8_t*)fb) [fboff] |= twobits_in_byte(p->x);
+		((uint8_t*)fb) [fboff + stride] |= twobits_in_byte(p->x);
+		break;
+	case 1:
+		((uint8_t*)fb) [fboff] |= bit_in_byte(p->x);
+		break;
+	}
+
 }
 
 int main(int argc, char **argv, char **envp)
@@ -107,14 +132,14 @@ int main(int argc, char **argv, char **envp)
 		//return 1;
 	}
 
-	/* Set the resolution, we might use dithering or something later... */
-	S3L_resolutionX = vscrinfo.xres;
-	S3L_resolutionY = vscrinfo.yres;
-
 	/* Stash the size of the framebuffer and reset the damage rect */
-	geometry[0] = vscrinfo.xres;
-	geometry[1] = vscrinfo.yres;
+	geometry[0] = vscrinfo.xres / scale;
+	geometry[1] = vscrinfo.yres / scale;
 	init_damage_rect();
+
+	/* Set S3L the resolution */
+	S3L_resolutionX = geometry[0];
+	S3L_resolutionY = geometry[1];
 
 	/* Setup the cube */
 	S3L_Model3D cube_model;
