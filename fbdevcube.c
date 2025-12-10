@@ -162,9 +162,6 @@ int main(int argc, char **argv, char **envp)
 		off_t damaged_line_start = start_of_line(damage_rect[1][0]);
 		off_t damaged_line_end = start_of_line(damage_rect[1][1] + 1);
 		size_t damage_sz = damaged_line_end - damaged_line_start;
-		printf("%d %d, %d\n", (unsigned) damaged_line_start,
-				      (unsigned) damaged_line_end,
-				      (unsigned) damage_sz);
 		memset(fb + damaged_line_start, 0, damaged_line_end);
 		//memset(fb, 0, framebuffersz);
 		reset_damage_rect();
