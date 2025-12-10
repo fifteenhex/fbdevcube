@@ -50,24 +50,34 @@ static inline unsigned int twobits_in_byte(unsigned short x)
 	return 0b11 << ((~x & 0x3) * 2);
 }
 
-static const uint8_t twobitpatterns[] = {
+static const uint8_t twobitpatterns[][2] = {
 	/* xx */
 	/* xx */
-	0b11111111,
-	0b11111111,
+	{
+		0b11111111,
+		0b11111111,
+	},
 	/* x. */
 	/* xx */
-	0b10101010,
-	0b11111111,
+	{
+		0b10101010,
+		0b11111111,
+	},
 	/* x. */
 	/* .x */
-	0b10101010,
-	0b01010101,
+	{
+		0b10101010,
+		0b01010101,
+	},
 	/* .x */
 	/* .. */
-	0b01010101,
-	0b00000000,
+	{
+		0b01010101,
+		0b00000000,
+	},
 };
+
+#define ARRAY_SIZE(_a) (sizeof(_a) / sizeof(_a[0]))
 
 static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 {
@@ -94,8 +104,9 @@ static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 
 	switch(scale) {
 	case 2: {
+		unsigned int patternidx = p->triangleIndex % ARRAY_SIZE(twobitpatterns);
 		uint8_t mask = twobits_in_byte(p->x);
-		const uint8_t *pattern = &twobitpatterns[2];
+		const uint8_t *pattern = twobitpatterns[patternidx];
 		uint8_t *nextline = fbaddr + stride;
 		*fbaddr = (*fbaddr & ~mask) | (pattern[0] & mask);
 		*nextline = (*nextline & ~mask) | (pattern[1] & mask);
