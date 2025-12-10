@@ -15,14 +15,6 @@ static unsigned short geometry[2];
 /* The rect damaged by the last *render pass* (yes, it feels wrong writing that.. */
 static unsigned short damage_rect[2][2];
 
-static void init_damage_rect(void)
-{
-	damage_rect[0][0] = 0;
-	damage_rect[0][1] = geometry[0];
-	damage_rect[1][0] = 0;
-	damage_rect[1][1] = geometry[1];
-}
-
 static void reset_damage_rect(void)
 {
 	damage_rect[0][0] = geometry[0];
@@ -136,7 +128,6 @@ int main(int argc, char **argv, char **envp)
 	/* Stash the size of the framebuffer and reset the damage rect */
 	geometry[0] = vscrinfo.xres / scale;
 	geometry[1] = vscrinfo.yres / scale;
-	init_damage_rect();
 
 	/* Set S3L the resolution */
 	S3L_resolutionX = geometry[0];
@@ -160,11 +151,9 @@ int main(int argc, char **argv, char **envp)
 
 	while (1) {
 		/* Work out where we need to clear the framebuffer and do it */
-		off_t damaged_line_start = start_of_line(damage_rect[1][0]);
-		off_t damaged_line_end = start_of_line(damage_rect[1][1] + 1);
-		size_t damage_sz = damaged_line_end - damaged_line_start;
-		memset(fb + damaged_line_start, 0, damaged_line_end);
-		//memset(fb, 0, framebuffersz);
+		off_t damaged_line_start, damaged_line_end;
+		size_t damage_sz;
+
 		reset_damage_rect();
 
 		cube_model.transform.rotation.x += 4;
@@ -179,6 +168,13 @@ int main(int argc, char **argv, char **envp)
 		 */
 		S3L_drawScene(scene);
 
+		/* Limit the FPS */
+		msleep(1000 / FPS);
+
+		damaged_line_start = start_of_line(damage_rect[1][0]);
+		damaged_line_end = start_of_line(damage_rect[1][1] + 1);
+		damage_sz = damaged_line_end - damaged_line_start;
+
 #if 0
 		printf("damage rect %d:%d, %d:%d\n",
 			(int) damage_rect[0][0],
@@ -187,8 +183,8 @@ int main(int argc, char **argv, char **envp)
 			(int) damage_rect[1][1]);
 #endif
 
-		/* Limit the FPS */
-		msleep(1000 / FPS);
+		memset(fb + damaged_line_start, 0, damaged_line_end);
+		//memset(fb, 0, framebuffersz);
 	}
 
 	return 0;
