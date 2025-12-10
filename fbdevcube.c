@@ -156,6 +156,14 @@ int main(int argc, char **argv, char **envp)
 		 */
 		S3L_drawScene(scene);
 
+#if 0
+		printf("damage rect %d:%d, %d:%d\n",
+			(int) damage_rect[0][0],
+			(int) damage_rect[0][1],
+			(int) damage_rect[1][0],
+			(int) damage_rect[1][1]);
+#endif
+
 		/* Limit the FPS */
 		msleep(1000 / FPS);
 	}
