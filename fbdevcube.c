@@ -50,6 +50,25 @@ static inline unsigned int twobits_in_byte(unsigned short x)
 	return 0b11 << ((~x & 0x3) * 2);
 }
 
+static const uint8_t twobitpatterns[] = {
+	/* xx */
+	/* xx */
+	0b11111111,
+	0b11111111,
+	/* x. */
+	/* xx */
+	0b10101010,
+	0b11111111,
+	/* x. */
+	/* .x */
+	0b10101010,
+	0b01010101,
+	/* .x */
+	/* .. */
+	0b01010101,
+	0b00000000,
+};
+
 static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 {
 	unsigned int line = start_of_line(p->y);
@@ -74,10 +93,14 @@ static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 		damage_rect[1][1] = p->y;
 
 	switch(scale) {
-	case 2:
-		*fbaddr |= twobits_in_byte(p->x);
-		*(fbaddr + stride) |= twobits_in_byte(p->x);
+	case 2: {
+		uint8_t mask = twobits_in_byte(p->x);
+		const uint8_t *pattern = &twobitpatterns[2];
+		uint8_t *nextline = fbaddr + stride;
+		*fbaddr = (*fbaddr & ~mask) | (pattern[0] & mask);
+		*nextline = (*nextline & ~mask) | (pattern[1] & mask);
 		break;
+	}
 	case 1:
 		*fbaddr |= bit_in_byte(p->x);
 		break;
