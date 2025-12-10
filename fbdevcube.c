@@ -11,11 +11,60 @@ static const S3L_Index cube_triangles[] = { S3L_CUBE_TRIANGLES };
 static void *fb;
 static unsigned int stride;
 
+static unsigned short geometry[2];
+/* The rect damaged by the last *render pass* (yes, it feels wrong writing that.. */
+static unsigned short damage_rect[2][2];
+
+static void init_damage_rect(void)
+{
+	damage_rect[0][0] = 0;
+	damage_rect[0][1] = geometry[0];
+	damage_rect[1][0] = 0;
+	damage_rect[1][1] = geometry[1];
+}
+
+static void reset_damage_rect(void)
+{
+	damage_rect[0][0] = geometry[0];
+	damage_rect[0][1] = 0;
+	damage_rect[1][0] = geometry[1];
+	damage_rect[1][1] = 0;
+}
+
+static inline off_t start_of_line(unsigned short y)
+{
+	return y * stride;
+}
+
+static inline off_t byte_in_line(unsigned short x)
+{
+	return x >> 3;
+}
+
+static inline unsigned int bit_in_byte(unsigned short x)
+{
+	return 1 << (~x & 0x7);
+}
+
 static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 {
-	unsigned int bit = ~p->x % 8;
+	/* Slide the damage rect x start out from the right */
+	if (p->x < damage_rect[0][0])
+		damage_rect[0][0] = p->x;
 
-	((uint8_t*)fb) [(p->y * stride) + (p->x / 8)] |= (1 << bit);
+	/* Slide the damage rect x end out from the left */
+	if (p->x > damage_rect[0][1])
+		damage_rect[0][1] = p->x;
+
+	/* Slide the damage rect y start out from the bottom */
+	if (p->y < damage_rect[1][0])
+		damage_rect[1][0] = p->y;
+
+	/* Slide the damage rect y end out from the top */
+	if (p->y > damage_rect[1][1])
+		damage_rect[1][1] = p->y;
+
+	((uint8_t*)fb) [start_of_line(p->y) + byte_in_line(p->x)] |= bit_in_byte(p->x);
 }
 
 int main(int argc, char **argv, char **envp)
@@ -62,6 +111,11 @@ int main(int argc, char **argv, char **envp)
 	S3L_resolutionX = vscrinfo.xres;
 	S3L_resolutionY = vscrinfo.yres;
 
+	/* Stash the size of the framebuffer and reset the damage rect */
+	geometry[0] = vscrinfo.xres;
+	geometry[1] = vscrinfo.yres;
+	init_damage_rect();
+
 	/* Setup the cube */
 	S3L_Model3D cube_model;
 	S3L_model3DInit(cube_vertices,
@@ -76,10 +130,19 @@ int main(int argc, char **argv, char **envp)
 
 	// shift the camera a little bit so that we can see the triangle
 	scene.camera.transform.translation.z = -2 * S3L_F;
-	scene.camera.transform.translation.y = S3L_F / 2;
+	scene.camera.transform.translation.y = S3L_F / 4;
 
 	while (1) {
-		memset(fb, 0, framebuffersz);
+		/* Work out where we need to clear the framebuffer and do it */
+		off_t damaged_line_start = start_of_line(damage_rect[1][0]);
+		off_t damaged_line_end = start_of_line(damage_rect[1][1] + 1);
+		size_t damage_sz = damaged_line_end - damaged_line_start;
+		printf("%d %d, %d\n", (unsigned) damaged_line_start,
+				      (unsigned) damaged_line_end,
+				      (unsigned) damage_sz);
+		memset(fb + damaged_line_start, 0, damaged_line_end);
+		//memset(fb, 0, framebuffersz);
+		reset_damage_rect();
 
 		cube_model.transform.rotation.x += 4;
 		cube_model.transform.rotation.y += 4;
