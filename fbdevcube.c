@@ -63,6 +63,7 @@ static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 	unsigned int line = start_of_line(p->y);
 	unsigned int byteinline = byte_in_line(p->x);
 	unsigned int fboff = line + byteinline;
+	uint8_t *fbaddr = (uint8_t *)(fb + fboff);
 
 	/* Slide the damage rect x start out from the right */
 	if (p->x < damage_rect[0][0])
@@ -82,11 +83,11 @@ static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 
 	switch(scale) {
 	case 2:
-		((uint8_t*)fb) [fboff] |= twobits_in_byte(p->x);
-		((uint8_t*)fb) [fboff + stride] |= twobits_in_byte(p->x);
+		*fbaddr |= twobits_in_byte(p->x);
+		*(fbaddr + stride) |= twobits_in_byte(p->x);
 		break;
 	case 1:
-		((uint8_t*)fb) [fboff] |= bit_in_byte(p->x);
+		*fbaddr |= bit_in_byte(p->x);
 		break;
 	}
 
