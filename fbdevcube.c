@@ -75,6 +75,25 @@ static const uint8_t twobitpatterns[][2] = {
 		0b01010101,
 		0b00000000,
 	},
+/* not sure if these are useful or not? */
+	/* xx */
+	/* .x */
+	{
+		0b11111111,
+		0b01010101,
+	},
+	/* .x */
+	/* x. */
+	{
+		0b01010101,
+		0b10101010,
+	},
+	/* .. */
+	/* x. */
+	{
+		0b00000000,
+		0b01010101,
+	},
 };
 
 #define ARRAY_SIZE(_a) (sizeof(_a) / sizeof(_a[0]))
@@ -104,7 +123,7 @@ static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 
 	switch(scale) {
 	case 2: {
-		unsigned int patternidx = p->triangleIndex % ARRAY_SIZE(twobitpatterns);
+		unsigned int patternidx = (p->triangleIndex / 2) % ARRAY_SIZE(twobitpatterns);
 		uint8_t mask = twobits_in_byte(p->x);
 		const uint8_t *pattern = twobitpatterns[patternidx];
 		uint8_t *nextline = fbaddr + stride;
