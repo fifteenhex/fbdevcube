@@ -5,6 +5,14 @@
 
 #define FPS 30
 
+#define OPTIONAL_ARGS \
+	OPTIONAL_UINT_ARG(scale, 1, "-s", "scale", "Scale factor")
+
+#define BOOLEAN_ARGS \
+	BOOLEAN_ARG(help, "-h", "Show help")
+
+#include <easyargs.h>
+
 static const S3L_Unit cube_vertices[] = { S3L_CUBE_VERTICES(S3L_F) };
 static const S3L_Index cube_triangles[] = { S3L_CUBE_TRIANGLES };
 
@@ -138,6 +146,20 @@ static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 
 }
 
+#if 0
+static int _parse_args(int argc, char **argv)
+{
+	args_t args = make_default_args();
+
+	if (!parse_args(argc, argv, &args) || args.help) {
+		print_help(argv[0]);
+		return -1;
+	}
+
+	return 0;
+}
+#endif
+
 int main(int argc, char **argv, char **envp)
 {
 	struct fb_var_screeninfo vscrinfo;
@@ -146,6 +168,10 @@ int main(int argc, char **argv, char **envp)
 	int fbfd, ret;
 
 	printf("fbdevcube (%s)\n", __TIME__);
+
+//	ret = _parse_args(argc, argv);
+//	if (ret)
+//		return 1;
 
 	fbfd = open(fbdev_path, O_RDWR);
 	if (fbfd < 0) {
