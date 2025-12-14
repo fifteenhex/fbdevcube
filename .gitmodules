@@ -1,3 +1,6 @@
 [submodule "small3dlib"]
 	path = small3dlib
 	url = https://github.com/fifteenhex/small3dlib.git
+[submodule "easy-args"]
+	path = easy-args
+	url = git@github.com:fifteenhex/easy-args.git
