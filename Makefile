@@ -1,5 +1,12 @@
 all: fbdevcube
 
+muldi3.o: muldi3.c
+	$(CC) -g -nostdlib \
+		-m68000 \
+		-ffunction-sections \
+		-Os -c -o $@ $<
+
+
 lb1sf68.o: lb1sf68.S
 	$(CC) -g -nostdlib \
 		-m68000 \
