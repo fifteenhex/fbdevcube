@@ -1,5 +1,14 @@
 all: fbdevcube
 
+lb1sf68.o: lb1sf68.S
+	$(CC) -g -nostdlib \
+		-m68000 \
+		-D L_mulsi3 \
+		-D L_divsi3 \
+		-D L_udivsi3 \
+		-ffunction-sections \
+		-Os -c -o $@ $<
+
 fbdevcube.o: fbdevcube.c
 	$(CC) -g -nostdlib \
 		-m68000 \
