@@ -24,12 +24,13 @@ fbdevcube.o: fbdevcube.c
 		-I easy-args/includes/ \
 		-Os -c -o $@ $<
 
-fbdevcube: fbdevcube.o
+fbdevcube: fbdevcube.o muldi3.o lb1sf68.o
 	$(CC) -g -nostdlib \
+		-m68000 \
 		-static \
 		-Wl,-gc-sections \
 		-Wl,-elf2flt=-rv \
-		-o $@ $< -lgcc
+		-o $@ $^
 
 clean:
-	rm fbdevcube fbdevcube.o
+	rm -f fbdevcube fbdevcube.gdb *.o
