@@ -16,8 +16,16 @@
 static const S3L_Unit cube_vertices[] = { S3L_CUBE_VERTICES(S3L_F) };
 static const S3L_Index cube_triangles[] = { S3L_CUBE_TRIANGLES };
 
-static void *fb;
-static unsigned int stride;
+struct framebuffer_info {
+	int fd;
+	unsigned int width;
+	unsigned int height;
+	unsigned int stride;
+	size_t sz;
+	void *fb;
+};
+
+static struct framebuffer_info fbinfo = { 0 };
 
 static unsigned short geometry[2];
 /* The rect damaged by the last *render pass* (yes, it feels wrong writing that.. */
@@ -35,7 +43,7 @@ static int scale = 2;
 
 static inline off_t start_of_line(unsigned short y)
 {
-	return (y * scale) * stride;
+	return (y * scale) * fbinfo.stride;
 }
 
 static inline off_t byte_in_line(unsigned short x)
@@ -111,7 +119,7 @@ static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 	unsigned int line = start_of_line(p->y);
 	unsigned int byteinline = byte_in_line(p->x);
 	unsigned int fboff = line + byteinline;
-	uint8_t *fbaddr = (uint8_t *)(fb + fboff);
+	uint8_t *fbaddr = (uint8_t *)(fbinfo.fb + fboff);
 
 	/* Slide the damage rect x start out from the right */
 	if (p->x < damage_rect[0][0])
@@ -134,7 +142,7 @@ static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 		unsigned int patternidx = (p->triangleIndex / 2) % ARRAY_SIZE(twobitpatterns);
 		uint8_t mask = twobits_in_byte(p->x);
 		const uint8_t *pattern = twobitpatterns[patternidx];
-		uint8_t *nextline = fbaddr + stride;
+		uint8_t *nextline = fbaddr + fbinfo.stride;
 		*fbaddr = (*fbaddr & ~mask) | (pattern[0] & mask);
 		*nextline = (*nextline & ~mask) | (pattern[1] & mask);
 		break;
@@ -160,18 +168,13 @@ static int _parse_args(int argc, char **argv)
 }
 #endif
 
-int main(int argc, char **argv, char **envp)
+static int fb_init(const char *fbdev_path, struct framebuffer_info *fbinfo)
 {
 	struct fb_var_screeninfo vscrinfo;
-	const char *fbdev_path = "/dev/fb0";
-	size_t framebuffersz;
+	unsigned int stride;
 	int fbfd, ret;
-
-	printf("fbdevcube (%s)\n", __TIME__);
-
-//	ret = _parse_args(argc, argv);
-//	if (ret)
-//		return 1;
+	size_t sz;
+	void *fb;
 
 	fbfd = open(fbdev_path, O_RDWR);
 	if (fbfd < 0) {
@@ -186,17 +189,43 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	stride = (vscrinfo.xres * vscrinfo.bits_per_pixel) / 8;
-	framebuffersz = ((vscrinfo.xres * vscrinfo.yres) * vscrinfo.bits_per_pixel) / 8;
+	sz = ((vscrinfo.xres * vscrinfo.yres) * vscrinfo.bits_per_pixel) / 8;
 	printf("framebuffer is %d x %d @ %d bpp, %d bytes\n",
-		vscrinfo.xres, vscrinfo.yres, vscrinfo.bits_per_pixel, (unsigned) framebuffersz);
+		vscrinfo.xres, vscrinfo.yres, vscrinfo.bits_per_pixel, (unsigned) sz);
 
-	fb = mmap(0, framebuffersz, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
+	fb = mmap(0, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
 	if (fb == MAP_FAILED) {
 		printf("failed to map framebuffer.\n");
 		return 1;
 	}
 
 	printf("framebuffer mapped to 0x%lx\n", (unsigned long) fb);
+
+	fbinfo->fd = fbfd;
+	fbinfo->sz = sz;
+	fbinfo->fb = fb;
+	fbinfo->width = vscrinfo.xres;
+	fbinfo->height = vscrinfo.yres;
+	fbinfo->stride = stride;
+
+	return 0;
+}
+
+int main(int argc, char **argv, char **envp)
+{
+	const char *fbdev_path = "/dev/fb0";
+	size_t framebuffersz;
+	int fbfd, ret;
+
+	printf("fbdevcube (%s)\n", __TIME__);
+
+//	ret = _parse_args(argc, argv);
+//	if (ret)
+//		return 1;
+
+	ret = fb_init(fbdev_path, &fbinfo);
+	if (ret)
+		return 1;
 
 	ret = ioctl(fbfd, FBIOBLANK, FB_BLANK_UNBLANK);
 	if (ret) {
@@ -205,8 +234,8 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	/* Stash the size of the framebuffer and reset the damage rect */
-	geometry[0] = vscrinfo.xres / scale;
-	geometry[1] = vscrinfo.yres / scale;
+	geometry[0] = fbinfo.width / scale;
+	geometry[1] = fbinfo.height / scale;
 
 	/* Set S3L the resolution */
 	S3L_resolutionX = geometry[0];
@@ -262,7 +291,7 @@ int main(int argc, char **argv, char **envp)
 			(int) damage_rect[1][1]);
 #endif
 
-		memset(fb + damaged_line_start, 0, damaged_line_end);
+		memset(fbinfo.fb + damaged_line_start, 0, damaged_line_end);
 		//memset(fb, 0, framebuffersz);
 	}
 
