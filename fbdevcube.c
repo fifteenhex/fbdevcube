@@ -1,4 +1,3 @@
-#include <linux/fb.h>
 #define S3L_PIXEL_FUNCTION	fbdevcube_pixel_func
 #define S3L_MAX_PIXELS		(512 * 512)
 #include "small3dlib/small3dlib.h"
@@ -12,146 +11,17 @@
 	BOOLEAN_ARG(help, "-h", "Show help")
 
 #include <easyargs.h>
+#define ARRAY_SIZE(_a) (sizeof(_a) / sizeof(_a[0]))
+#include <fbdevgl.h>
 
 static const S3L_Unit cube_vertices[] = { S3L_CUBE_VERTICES(S3L_F) };
 static const S3L_Index cube_triangles[] = { S3L_CUBE_TRIANGLES };
 
-struct framebuffer_info {
-	int fd;
-	unsigned int width;
-	unsigned int height;
-	unsigned int stride;
-	size_t sz;
-	void *fb;
-};
-
-static struct framebuffer_info fbinfo = { 0 };
-
-static unsigned short geometry[2];
-/* The rect damaged by the last *render pass* (yes, it feels wrong writing that.. */
-static unsigned short damage_rect[2][2];
-
-static void reset_damage_rect(void)
-{
-	damage_rect[0][0] = geometry[0];
-	damage_rect[0][1] = 0;
-	damage_rect[1][0] = geometry[1];
-	damage_rect[1][1] = 0;
-}
-
-static int scale = 2;
-
-static inline off_t start_of_line(unsigned short y)
-{
-	return (y * scale) * fbinfo.stride;
-}
-
-static inline off_t byte_in_line(unsigned short x)
-{
-	switch(scale) {
-	case 1: return x >> 3;
-	case 2: return x >> 2;
-	}
-
-	return 0;
-}
-
-static inline unsigned int bit_in_byte(unsigned short x)
-{
-	return 1 << (~x & 0x7);
-}
-
-static inline unsigned int twobits_in_byte(unsigned short x)
-{
-	return 0b11 << ((~x & 0x3) * 2);
-}
-
-static const uint8_t twobitpatterns[][2] = {
-	/* xx */
-	/* xx */
-	{
-		0b11111111,
-		0b11111111,
-	},
-	/* x. */
-	/* xx */
-	{
-		0b10101010,
-		0b11111111,
-	},
-	/* x. */
-	/* .x */
-	{
-		0b10101010,
-		0b01010101,
-	},
-	/* .x */
-	/* .. */
-	{
-		0b01010101,
-		0b00000000,
-	},
-/* not sure if these are useful or not? */
-	/* xx */
-	/* .x */
-	{
-		0b11111111,
-		0b01010101,
-	},
-	/* .x */
-	/* x. */
-	{
-		0b01010101,
-		0b10101010,
-	},
-	/* .. */
-	/* x. */
-	{
-		0b00000000,
-		0b01010101,
-	},
-};
-
-#define ARRAY_SIZE(_a) (sizeof(_a) / sizeof(_a[0]))
+static struct fbdevgl_context fbinfo = { 0 };
 
 static inline void fbdevcube_pixel_func(S3L_PixelInfo *p)
 {
-	unsigned int line = start_of_line(p->y);
-	unsigned int byteinline = byte_in_line(p->x);
-	unsigned int fboff = line + byteinline;
-	uint8_t *fbaddr = (uint8_t *)(fbinfo.fb + fboff);
-
-	/* Slide the damage rect x start out from the right */
-	if (p->x < damage_rect[0][0])
-		damage_rect[0][0] = p->x;
-
-	/* Slide the damage rect x end out from the left */
-	if (p->x > damage_rect[0][1])
-		damage_rect[0][1] = p->x;
-
-	/* Slide the damage rect y start out from the bottom */
-	if (p->y < damage_rect[1][0])
-		damage_rect[1][0] = p->y;
-
-	/* Slide the damage rect y end out from the top */
-	if (p->y > damage_rect[1][1])
-		damage_rect[1][1] = p->y;
-
-	switch(scale) {
-	case 2: {
-		unsigned int patternidx = (p->triangleIndex / 2) % ARRAY_SIZE(twobitpatterns);
-		uint8_t mask = twobits_in_byte(p->x);
-		const uint8_t *pattern = twobitpatterns[patternidx];
-		uint8_t *nextline = fbaddr + fbinfo.stride;
-		*fbaddr = (*fbaddr & ~mask) | (pattern[0] & mask);
-		*nextline = (*nextline & ~mask) | (pattern[1] & mask);
-		break;
-	}
-	case 1:
-		*fbaddr |= bit_in_byte(p->x);
-		break;
-	}
-
+	fbdevgl_set_pixel(&fbinfo, p->x, p->y, p->triangleIndex / 2);
 }
 
 #if 0
@@ -168,49 +38,6 @@ static int _parse_args(int argc, char **argv)
 }
 #endif
 
-static int fb_init(const char *fbdev_path, struct framebuffer_info *fbinfo)
-{
-	struct fb_var_screeninfo vscrinfo;
-	unsigned int stride;
-	int fbfd, ret;
-	size_t sz;
-	void *fb;
-
-	fbfd = open(fbdev_path, O_RDWR);
-	if (fbfd < 0) {
-		printf("failed to open fbdev %s: %d\n", fbdev_path, fbfd);
-		return 1;
-	}
-
-	ret = ioctl(fbfd, FBIOGET_VSCREENINFO, &vscrinfo);
-	if (ret) {
-		printf("failed to get var screeninfo: %d\n", ret);
-		return 1;
-	}
-
-	stride = (vscrinfo.xres * vscrinfo.bits_per_pixel) / 8;
-	sz = ((vscrinfo.xres * vscrinfo.yres) * vscrinfo.bits_per_pixel) / 8;
-	printf("framebuffer is %d x %d @ %d bpp, %d bytes\n",
-		vscrinfo.xres, vscrinfo.yres, vscrinfo.bits_per_pixel, (unsigned) sz);
-
-	fb = mmap(0, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
-	if (fb == MAP_FAILED) {
-		printf("failed to map framebuffer.\n");
-		return 1;
-	}
-
-	printf("framebuffer mapped to 0x%lx\n", (unsigned long) fb);
-
-	fbinfo->fd = fbfd;
-	fbinfo->sz = sz;
-	fbinfo->fb = fb;
-	fbinfo->width = vscrinfo.xres;
-	fbinfo->height = vscrinfo.yres;
-	fbinfo->stride = stride;
-
-	return 0;
-}
-
 int main(int argc, char **argv, char **envp)
 {
 	const char *fbdev_path = "/dev/fb0";
@@ -223,7 +50,7 @@ int main(int argc, char **argv, char **envp)
 //	if (ret)
 //		return 1;
 
-	ret = fb_init(fbdev_path, &fbinfo);
+	ret = fbdevgl_init(fbdev_path, &fbinfo);
 	if (ret)
 		return 1;
 
@@ -233,13 +60,9 @@ int main(int argc, char **argv, char **envp)
 		//return 1;
 	}
 
-	/* Stash the size of the framebuffer and reset the damage rect */
-	geometry[0] = fbinfo.width / scale;
-	geometry[1] = fbinfo.height / scale;
-
 	/* Set S3L the resolution */
-	S3L_resolutionX = geometry[0];
-	S3L_resolutionY = geometry[1];
+	S3L_resolutionX = fbinfo.geometry[0];
+	S3L_resolutionY = fbinfo.geometry[1];
 
 	/* Setup the cube */
 	S3L_Model3D cube_model;
@@ -258,11 +81,7 @@ int main(int argc, char **argv, char **envp)
 	scene.camera.transform.translation.y = S3L_F / 4;
 
 	while (1) {
-		/* Work out where we need to clear the framebuffer and do it */
-		off_t damaged_line_start, damaged_line_end;
-		size_t damage_sz;
-
-		reset_damage_rect();
+		fbdevgl_reset_damage_rect(&fbinfo);
 
 		cube_model.transform.rotation.x += 4;
 		cube_model.transform.rotation.y += 4;
@@ -279,20 +98,7 @@ int main(int argc, char **argv, char **envp)
 		/* Limit the FPS */
 		msleep(1000 / FPS);
 
-		damaged_line_start = start_of_line(damage_rect[1][0]);
-		damaged_line_end = start_of_line(damage_rect[1][1] + 1);
-		damage_sz = damaged_line_end - damaged_line_start;
-
-#if 0
-		printf("damage rect %d:%d, %d:%d\n",
-			(int) damage_rect[0][0],
-			(int) damage_rect[0][1],
-			(int) damage_rect[1][0],
-			(int) damage_rect[1][1]);
-#endif
-
-		memset(fbinfo.fb + damaged_line_start, 0, damaged_line_end);
-		//memset(fb, 0, framebuffersz);
+		fbdevgl_clear_damaged_area(&fbinfo);
 	}
 
 	return 0;

@@ -22,6 +22,7 @@ fbdevcube.o: fbdevcube.c
 		-ffunction-sections \
 		-include $(KDIR)/tools/include/nolibc/nolibc.h \
 		-I easy-args/includes/ \
+		-I fbdevgl/ \
 		-Os -c -o $@ $<
 
 fbdevcube: fbdevcube.o muldi3.o lb1sf68.o
